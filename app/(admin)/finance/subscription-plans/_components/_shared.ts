@@ -1,0 +1,36 @@
+// app/(admin)/finance/subscription-plans/_components/_shared.ts
+//
+// Общие константы для страницы тарифов.
+// Вынесено из subscription-plans-page-client.tsx (было 577 строк,
+// разбито на 4 файла + shared).
+
+import type { SectionTabDef } from "@/components/admin/section-tabs";
+import type { PlanTier } from "@/hooks/admin/use-subscription-plans";
+
+// Debounce для поиска. 400мс — оптимально для админки (как в транзакциях).
+export { SEARCH_DEBOUNCE_MS } from "@/lib/constants";
+
+// Табы-разделы страницы (SectionTabs): Premium / VIP.
+export const PLAN_TABS: Array<SectionTabDef<PlanTier>> = [
+  { value: "premium", label: "Premium" },
+  { value: "vip", label: "VIP" },
+];
+
+// Описание фич Premium — показывается в плашке на странице.
+// Не хранится в БД, это маркетинговый текст для админа (чтобы помнил,
+// что входит в тариф при создании/редактировании).
+export const PREMIUM_FEATURES = [
+  "Свободно пиши всем девушкам, которые понравились",
+  "Посмотри, кто поставил тебе лайк и не против встретиться",
+  "Увеличь шансы в 10 раз — напиши сразу нескольким девушкам",
+  "Получи преимущество в общении с новыми и популярными девушками",
+  "Просматривай анкеты в режиме «Невидимки»",
+  "Отключи показ рекламы",
+];
+
+// Описание фич VIP.
+export const VIP_FEATURES = [
+  "Показ в Топе раз в три дня",
+  "Фото показываются первыми в знакомствах",
+  "Сообщения показываются выше других",
+];
