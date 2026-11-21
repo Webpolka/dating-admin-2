@@ -26,6 +26,7 @@ const BADGE_KEY_TO_STAT: Record<string, keyof DashboardStats> = {
   pendingDiaries: "pendingDiaries",
   pendingDiaryComments: "pendingDiaryComments",
   pendingReports: "pendingReports",
+  pendingVerifications: "pendingVerifications",
 };
 
 /**

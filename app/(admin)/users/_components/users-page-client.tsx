@@ -56,7 +56,7 @@ const GENDER_OPTIONS: Record<string, string> = {
 };
 
 const SUB_OPTIONS: Record<string, string> = {
-  all: "Все подписки",
+  all: "Подписки не учитывать",
   vip_only: "Только VIP",
   premium_only: "Только Premium",
   both: "VIP + Premium",
@@ -232,7 +232,7 @@ export function UsersPageClient() {
 
       {/* Счётчики */}
       {stats && (
-        <div className="flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
+        <div className="flex items-center gap-6 flex-wrap text-xs text-muted-foreground">
           <span>Всего: <b className="text-foreground">{stats.total}</b></span>
           <span>Бан: <b className="text-red-500">{stats.banned}</b></span>
           <span>Теневой: <b className="text-yellow-500">{stats.shadowbanned}</b></span>
@@ -272,7 +272,7 @@ export function UsersPageClient() {
           </Select>
 
           <Select value={filters.sub || "all"} onValueChange={(v) => set({ sub: v && v !== "all" ? v : "" })}>
-            <SelectTrigger className="w-42">
+            <SelectTrigger className="w-[14rem]">
               <SelectValue>
                 {(v: string | null) => (v === null ? "Все подписки" : SUB_OPTIONS[v] ?? v)}
               </SelectValue>

@@ -1,9 +1,9 @@
 // lib/navigation.ts
-import { 
-  LayoutDashboard, Users, Wallet, Crown, Gift, ShieldCheck, Megaphone, 
-  ScrollText, Image, FileText, Settings, Terminal, Headset, Files, 
-  MessagesSquare, ShieldBan, MessageCircle, BookOpen, Heart, Flag, Sparkles ,
-  Siren, UserX
+import {
+  LayoutDashboard, Users, Wallet, Crown, Gift, ShieldCheck, Megaphone,
+  ScrollText, Image, FileText, Settings, Terminal, Headset, Files,
+  MessagesSquare, ShieldBan, MessageCircle, BookOpen, Heart, Flag, Sparkles,
+  Siren, UserX, BadgeCheck, Ticket,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -31,6 +31,7 @@ export const navGroups: { label: string; items: NavItem[] }[] = [
     items: [
       { title: "Транзакции", href: "/finance/transactions", icon: Wallet, roles: ['admin'] },
       { title: "Платные подписки", href: "/finance/subscription-plans", icon: Crown, roles: ['admin'] },
+      { title: "Промокоды", href: "/finance/promo-codes", icon: Ticket, roles: ['admin'] },
       { title: "Подарки", href: "/finance/gifts", icon: Gift, roles: ['admin'] },
     ],
   },
@@ -65,6 +66,7 @@ export const navGroups: { label: string; items: NavItem[] }[] = [
       { title: "Комм. к фото", href: "/moderation/photo-comments", icon: MessageCircle, roles: ['admin', 'moderator'], badgeKey: "pendingPhotoComments", badgeType: "default" },
       { title: "Дневники", href: "/moderation/diary", icon: BookOpen, roles: ['admin', 'moderator'], badgeKey: "pendingDiaries", badgeType: "default" },
       { title: "Комм. к дневникам", href: "/moderation/diary-comments", icon: Heart, roles: ['admin', 'moderator'], badgeKey: "pendingDiaryComments", badgeType: "default" },
+      { title: "Верификации", href: "/moderation/verifications", icon: BadgeCheck, roles: ['admin', 'moderator'], badgeKey: "pendingVerifications", badgeType: "default" },
       { title: "Знакомства", href: "/moderation/dating", icon: Heart, roles: ['admin', 'moderator'] },
       { title: "Жалобы", href: "/moderation/reports", icon: Flag, roles: ['admin', 'moderator'], badgeKey: "pendingReports", badgeType: "destructive" },
     ],

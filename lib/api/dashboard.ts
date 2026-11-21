@@ -31,6 +31,7 @@ export interface DashboardStats {
   pendingDiaries: number;
   pendingDiaryComments: number;
   pendingReports: number;
+  pendingVerifications: number;
   unreadTickets: number;
 
   recentUsers: RecentUser[];

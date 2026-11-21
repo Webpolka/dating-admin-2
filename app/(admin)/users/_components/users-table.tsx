@@ -48,7 +48,7 @@ export function UsersTable({
           <TableRow>
             <TableHead className="w-14">ID</TableHead>
             <TableHead>Пользователь</TableHead>
-            <TableHead className="w-14">Пол</TableHead>
+            <TableHead className="w-40">Пол</TableHead>
             <TableHead>Локация</TableHead>
             <TableHead>
               <button onClick={onToggleSort} className="flex items-center gap-1 hover:text-foreground transition-colors">

@@ -14,19 +14,40 @@ type DatePickerProps = {
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
+  /**
+   * Минимальная selectable дата. Даты раньше этой — disabled в календаре.
+   * Например: new Date() — нельзя выбрать прошедшую дату.
+   * Если null/undefined — ограничений нет.
+   */
+  minDate?: Date | null;
+  /** Запретить выбор (полностью disable). */
+  disabled?: boolean;
 };
 
-export function DatePicker({ value, onChange, placeholder = "Выберите дату" }: DatePickerProps) {
+export function DatePicker({
+  value,
+  onChange,
+  placeholder = "Выберите дату",
+  minDate,
+  disabled = false,
+}: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const date = value ? new Date(value) : undefined;
+
+  // react-day-picker Matcher: даты раньше minDate — disabled.
+  // Округляем minDate до начала дня, чтобы "сегодня" оставалось selectable.
+  const disabledMatcher = minDate
+    ? { before: new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()) }
+    : undefined;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={
          <Button
           variant="outline"
+          disabled={disabled}
           className={cn(
-            "w-37.5 justify-between text-left font-normal",
+            "w-full justify-between text-left font-normal",
             !value && "text-muted-foreground"
           )}
         >
@@ -41,8 +62,9 @@ export function DatePicker({ value, onChange, placeholder = "Выберите д
           onSelect={(d) => {
             onChange?.(d ? format(d, "yyyy-MM-dd") : "");
             setOpen(false);
-          }}          
+          }}
           locale={ru}
+          disabled={disabledMatcher}
         />
       </PopoverContent>
     </Popover>

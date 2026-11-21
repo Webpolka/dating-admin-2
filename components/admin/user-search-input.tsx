@@ -1,7 +1,8 @@
 // components/admin/user-search-input.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { useSearchUsers } from "@/hooks/admin/use-search-users";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,9 @@ export function UserSearchInput({
   const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Позиция dropdown — fixed, рендерится через portal в document.body.
+  // Решает проблему обрезания в модалках с overflow-hidden (FormModal/Dialog).
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   // Поиск с debounce (400мс): мгновенный сброс на пустой строке.
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
@@ -59,6 +63,38 @@ export function UserSearchInput({
       itemRefs.current[activeIndex]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
   }, [activeIndex]);
+
+  // Расчёт позиции dropdown (fixed, в body) — при открытии/изменении поиска.
+  // Также пересчёт при scroll/resize окна (если модалка скроллит).
+  const updateDropdownPos = () => {
+    if (!containerRef.current) {
+      setDropdownPos(null);
+      return;
+    }
+    const rect = containerRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (isDropdownOpen && debouncedSearch.length >= 2) {
+      updateDropdownPos();
+    }
+  }, [isDropdownOpen, debouncedSearch]);
+
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    // Пересчёт при scroll/resize — dropdown остаётся привязанным к инпуту.
+    window.addEventListener("scroll", updateDropdownPos, true);
+    window.addEventListener("resize", updateDropdownPos);
+    return () => {
+      window.removeEventListener("scroll", updateDropdownPos, true);
+      window.removeEventListener("resize", updateDropdownPos);
+    };
+  }, [isDropdownOpen]);
 
   const handleSelect = (user: SearchUserItem) => {
     onSelect(user);
@@ -152,8 +188,17 @@ export function UserSearchInput({
         </button>
       )}
 
-      {isDropdownOpen && (debouncedSearch.length >= 2) && (
-        <div className="absolute z-50 top-full mt-1 w-full rounded-lg max-h-60 overflow-y-auto bg-card shadow-lg border border-border">
+      {isDropdownOpen && (debouncedSearch.length >= 2) && dropdownPos && createPortal(
+        <div
+          style={{
+            position: "fixed",
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            width: dropdownPos.width,
+            zIndex: 9999,
+          }}
+          className="rounded-lg max-h-60 overflow-y-auto bg-card shadow-lg border border-border"
+        >
           {isLoading ? (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               <Loader2 className="w-5 h-5 animate-spin inline mr-2" />
@@ -184,7 +229,8 @@ export function UserSearchInput({
               Пользователи не найдены
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
