@@ -48,11 +48,11 @@ export function UsersTable({
           <TableRow>
             <TableHead className="w-14">ID</TableHead>
             <TableHead>Пользователь</TableHead>
-            <TableHead className="w-40">Пол</TableHead>
+            <TableHead className="w-14">Пол</TableHead>
             <TableHead>Локация</TableHead>
             <TableHead>
               <button onClick={onToggleSort} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                Дата
+                Обновлён
                 {sort === "desc" ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
               </button>
             </TableHead>
@@ -128,7 +128,10 @@ export function UsersTable({
                 </TableCell>
 
                 <TableCell className="text-xs text-muted-foreground whitespace-nowrap align-top pt-3">
-                  {formatDateTime(user.created_at)}
+                  {formatDateTime(user.updated_at ?? user.created_at)}
+                  <div className="text-[10px] text-muted-foreground/70 mt-0.5">
+                    рег: {formatDateTime(user.created_at)}
+                  </div>
                   {user.last_seen && (
                     <div className="text-[10px] text-amber-600 dark:text-amber-500 mt-0.5">
                       ↻ {formatDateTime(user.last_seen)}

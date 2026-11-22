@@ -1,3 +1,5 @@
+// app/(admin)/users/[id]/layout.tsx
+
 import { redirect } from "next/navigation";
 import { UserDetailClient } from "./_components/user-detail-client";
 

@@ -2,117 +2,76 @@
 
 // app/(admin)/users/[id]/_components/tabs/gifts-tab.tsx
 //
-// Таб «Подарки»: единый список подарков юзера с фильтром по направлению.
+// Таб «Подарки»: двухколоночный layout — отправленные (слева) и полученные (справа).
+// Паттерн как blocks-tab: две независимые пагинации (?sent_page=N&received_page=N).
 //
-// Per-user листинг: GET /admin/users/{userId}/gifts?filter=all&page=2
-// (UserListingsController::gifts, single-list с filter=all|sent|received,
-// формат айтема = глобальная история /finance/gifts + поле direction).
-// Действия (hide/restore) — в глобальном разделе /finance/gifts?q=<id>.
-//
-// Зеркало blade-эталона: кнопки фильтра (Все/Отправленные/Полученные) сверху,
-// single-list снизу. В каждом ряду — #id (ссылка на историю), снапшот подарка
-// (картинка + название + цена), направление (стрелка + counterpart), статус
-// (приватный/публичный или прочитан/не прочитан), дата.
+// Бекенд: GET /admin/users/{userId}/gifts?filter=sent&page=N
+//         GET /admin/users/{userId}/gifts?filter=received&page=N
+// Два запроса с разными filter — каждый со своей пагинацией.
 
-import { ArrowDownLeft, ArrowUpRight, Gift, EyeOff, ImageOff } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Gift, EyeOff, ImageOff } from "lucide-react";
 import Link from "next/link";
 
 import { MiniPagination } from "@/components/admin/mini-pagination";
-import { StatusTabs, type StatusTabDef } from "@/components/admin/status-tabs";
 import { TabError, TabLoading } from "@/components/admin/tab-states";
 import { UserBadge } from "@/components/admin/user-badge";
 import { Badge } from "@/components/ui/badge";
-import { useTabUrl, parsePageParam, parseEnumParam } from "@/hooks/admin/use-tab-url";
+import { useTabUrl, parsePageParam } from "@/hooks/admin/use-tab-url";
 import { useUserGifts } from "@/hooks/admin/use-users";
-import { formatRelativeTime } from "@/lib/format";
+import { formatRelativeTime, formatDateTime } from "@/lib/format";
 import type { UserBadgeData } from "@/lib/types";
-import type { UserGiftsParams, UserGiftTabItem } from "@/lib/api/users";
+import type { UserGiftTabItem } from "@/lib/api/users";
 
 interface GiftsTabProps {
   userId: number;
 }
 
-const FILTER_VALUES = ["all", "sent", "received"] as const;
-
-type GiftFilter = NonNullable<UserGiftsParams["filter"]>;
-
-const FILTER_TABS: ReadonlyArray<StatusTabDef<GiftFilter>> = [
-  { value: "all",      label: "Все подарки" },
-  { value: "sent",     label: "Отправленные", icon: ArrowUpRight },
-  { value: "received", label: "Полученные",   icon: ArrowDownLeft },
-];
-
-const EMPTY_TEXT: Record<string, string> = {
-  all:      "У пользователя нет подарков.",
-  sent:     "Пользователь еще никому не дарил подарков.",
-  received: "Пользователь не получал подарков.",
-};
-
 export function GiftsTab({ userId }: GiftsTabProps) {
   const basePath = `/users/${userId}/gifts`;
   const { searchParams, replace } = useTabUrl(basePath);
 
-  const filter = parseEnumParam(searchParams, "filter", FILTER_VALUES, "all");
-  const page = parsePageParam(searchParams);
+  const sentPage = parsePageParam(searchParams, "sent_page");
+  const receivedPage = parsePageParam(searchParams, "received_page");
 
-  const { data, isLoading, isError, refetch } = useUserGifts(userId, { filter, page });
+  const sentQuery = useUserGifts(userId, { filter: "sent", page: sentPage });
+  const receivedQuery = useUserGifts(userId, { filter: "received", page: receivedPage });
 
-  // Порядок гардов важен: сначала isLoading/isError, и только потом !data
-  // (комбинированный guard съедал ошибку — см. tab-states.tsx).
+  const isLoading = sentQuery.isLoading || receivedQuery.isLoading;
+  const isError = sentQuery.isError || receivedQuery.isError;
+
   if (isLoading) return <TabLoading label="Загрузка подарков..." />;
-  if (isError) return <TabError label="Не удалось загрузить подарки" onRetry={refetch} />;
-  if (!data) return <TabLoading label="Загрузка подарков..." />;
-
-  const gifts = data.data;
-  const counts = data.counts;
-
-  /** Смена фильтра: сбрасываем страницу (новый фильтр — с 1-й). */
-  const setFilter = (next: GiftFilter) => {
-    replace((p) => {
-      if (next === "all") p.delete("filter");
-      else p.set("filter", next);
-      p.delete("page");
-    });
-  };
+  if (isError) return <TabError label="Не удалось загрузить подарки" onRetry={() => { sentQuery.refetch(); receivedQuery.refetch(); }} />;
+  if (!sentQuery.data || !receivedQuery.data) return <TabLoading label="Загрузка подарков..." />;
 
   return (
-    <div className="space-y-4">
-      {/* === Кнопки фильтра (StatusTabs — общий рендер кнопок со счётчиками) === */}
-      <StatusTabs
-        tabs={FILTER_TABS}
-        value={filter}
-        onChange={setFilter}
-        getCount={(v) => counts[v]}
-      />
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <GiftsColumn
+          title="Отправленные подарки:"
+          icon={ArrowUpRight}
+          iconColor="text-blue-500"
+          paginator={sentQuery.data}
+          onChangePage={(p) =>
+            replace((params) => (p <= 1 ? params.delete("sent_page") : params.set("sent_page", String(p))))
+          }
+          emptyText="Пользователь еще никому не дарил подарков."
+        />
 
-      {/* === Список === */}
-      {gifts.length === 0 ? (
-        <div className="p-4 bg-muted/20 rounded-lg border border-border text-center text-xs text-muted-foreground">
-          {EMPTY_TEXT[filter]}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {gifts.map((g) => (
-            <GiftRow key={g.id} item={g} />
-          ))}
-        </div>
-      )}
-
-      <MiniPagination
-        currentPage={data.current_page}
-        lastPage={data.last_page}
-        from={data.from}
-        to={data.to}
-        total={data.total}
-        onChangePage={(next) => replace((p) => (next <= 1 ? p.delete("page") : p.set("page", String(next))))}
-      />
+        <GiftsColumn
+          title="Полученные подарки:"
+          icon={ArrowDownLeft}
+          iconColor="text-destructive"
+          paginator={receivedQuery.data}
+          onChangePage={(p) =>
+            replace((params) => (p <= 1 ? params.delete("received_page") : params.set("received_page", String(p))))
+          }
+          emptyText="Пользователь не получал подарков."
+        />
+      </div>
 
       <div className="text-xs text-muted-foreground">
         <Gift className="w-3.5 h-3.5 inline mr-1" />
-        <Link
-          href="/finance/gifts"
-          className="hover:text-foreground underline underline-offset-2"
-        >
+        <Link href="/finance/gifts" className="hover:text-foreground underline underline-offset-2">
           Управлять подарками в разделе «Финансы → Подарки»
         </Link>
       </div>
@@ -121,101 +80,187 @@ export function GiftsTab({ userId }: GiftsTabProps) {
 }
 
 // ============================================
-// СТРОКА ПОДАРКА
+// КОЛОНКА ПОДАРКОВ
+// ============================================
+
+function GiftsColumn({
+  title,
+  icon: Icon,
+  iconColor,
+  paginator,
+  onChangePage,
+  emptyText,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconColor: string;
+  paginator: { data: UserGiftTabItem[]; total: number; current_page: number; last_page: number; from: number | null; to: number | null; per_page: number };
+  onChangePage: (page: number) => void;
+  emptyText: string;
+}) {
+  return (
+    <div className="space-y-4">
+      <h3 className="text-sm font-semibold flex items-center gap-2">
+        <Icon className={`w-4 h-4 ${iconColor}`} /> {title} &nbsp; {paginator.total}
+      </h3>
+
+      {paginator.data.length === 0 ? (
+        <div className="p-4 bg-muted/20 rounded-lg border border-border text-center text-xs text-muted-foreground">
+          {emptyText}
+        </div>
+      ) : (
+        <>
+          <div className="space-y-2">
+            {paginator.data.map((g) => (
+              <GiftRow key={g.id} item={g} />
+            ))}
+          </div>
+
+          <MiniPagination
+            currentPage={paginator.current_page}
+            lastPage={paginator.last_page}
+            from={paginator.from}
+            to={paginator.to}
+            total={paginator.total}
+            onChangePage={onChangePage}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// СТРОКА ПОДАРКА — по шаблону ReportRow
 // ============================================
 
 function GiftRow({ item }: { item: UserGiftTabItem }) {
-  // В sent показываем получателя, в received — отправителя.
+  // В двухколоночном layout направление уже определяется колонкой.
+  // counterpart: sent → receiver, received → sender.
   const counterpart = item.direction === "sent" ? item.receiver : item.sender;
+  const isSent = item.direction === "sent";
 
   return (
-    <div
-      className={`flex items-center gap-4 p-3 border border-border rounded-lg bg-card hover:bg-muted/30 transition-colors ${
-        item.is_hidden ? "opacity-50" : ""
-      }`}
-    >
-      {/* #id → история подарков */}
-      <Link
-        href={`/finance/gifts?q=${item.id}`}
-        className="text-xs font-mono text-blue-500 hover:underline font-medium shrink-0"
-        title="Найти в истории дарений"
-      >
-        #{item.id}
-      </Link>
+    <div className={`p-3 bg-card border border-border rounded-lg space-y-2 ${item.is_hidden ? "opacity-50" : ""}`}>
+      {/* Шапка: Gift # (каталог) + UserGift # (история) + badges + дата справа */}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        {/* Gift # → каталог подарков (по gift.id) */}
+        {item.gift ? (
+          <Link
+            href={`/finance/gifts?tab=catalog&q=${item.gift.id}`}
+            className="font-mono text-blue-500 hover:underline shrink-0"
+            title="Открыть в каталоге подарков"
+          >
+            Gift #{item.gift.id}
+          </Link>
+        ) : (
+          <span className="font-mono text-muted-foreground/50 shrink-0" title="Подарок удалён из каталога">
+            Gift удалён
+          </span>
+        )}
 
-      {/* Снапшот подарка */}
-      {item.snapshot_image_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={item.snapshot_image_url}
-          alt={item.snapshot_name}
-          className="w-14 h-14 rounded-md object-cover bg-muted shrink-0"
-        />
-      ) : (
-        <div className="w-14 h-14 flex items-center justify-center rounded-md bg-muted border border-dashed border-border shrink-0">
-          <ImageOff className="w-4 h-4 text-muted-foreground/50" />
+        {/* UserGift # → история дарений (по item.id) */}
+        <Link
+          href={`/finance/gifts?tab=history&q=${item.id}`}
+          className="font-mono text-blue-500 hover:underline shrink-0"
+          title="Открыть в истории дарений"
+        >
+          UserGift #{item.id}
+        </Link>
+
+        {/* Бейджи статусов */}
+        <div className="flex flex-wrap items-center gap-1.5" title="Статус подарка">
+          {isSent ? (
+            item.is_private ? (
+              <Badge variant="secondary" className="text-xs px-1.5 py-0">Приватный</Badge>
+            ) : (
+              <Badge variant="success" className="text-xs px-1.5 py-0">Публичный</Badge>
+            )
+          ) : item.is_read ? (
+            <Badge variant="secondary" className="text-xs px-1.5 py-0">Прочитан</Badge>
+          ) : (
+            <Badge variant="warning" className="text-xs px-1.5 py-0">Не прочитан</Badge>
+          )}
+          {item.is_hidden && (
+            <Badge variant="destructive" className="text-xs px-1.5 py-0 gap-1">
+              <EyeOff className="w-3 h-3" /> Скрыт
+            </Badge>
+          )}
+        </div>
+
+          {/* Тип + категория подарка (из каталога) */}
+            {item.gift && (
+              <div className="flex items-center gap-1.5">
+                <Badge variant="outline" className="text-xs px-1.5 py-0" title="Тип подарка">
+                  {item.gift.type === "main" ? "Основной"
+                    : item.gift.type === "premium" ? "Премиум"
+                    : item.gift.type === "services" ? "Услуга"
+                    : item.gift.type}
+                </Badge>
+                {item.gift.category_label && (
+                  <span title="Категория подарка"
+                    className={`text-xs font-medium px-1.5 py-0 rounded ${item.gift.category_color ?? "bg-muted text-muted-foreground"}`}
+                  >
+                    {item.gift.category_label}
+                  </span>
+                )}
+              </div>
+            )}
+
+        {item.created_at && (
+          <span title={formatDateTime(item.created_at)} className="ml-auto whitespace-nowrap">
+            {formatRelativeTime(item.created_at)}
+          </span>
+        )}
+      </div>
+
+      {/* Тело: подарок (image + name + price) слева, counterpart справа */}
+      <div className="flex justify-between items-center gap-3">
+        {/* Левая часть: image + name + price */}
+        <div className="flex items-center gap-3 min-w-0">
+          {item.snapshot_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={item.snapshot_image_url}
+              alt={item.snapshot_name}
+              className="w-12 h-12 rounded-md object-cover bg-muted shrink-0"
+            />
+          ) : (
+            <div className="w-12 h-12 flex items-center justify-center rounded-md bg-muted border border-dashed border-border shrink-0">
+              <ImageOff className="w-4 h-4 text-muted-foreground/50" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <span className="text-md font-medium block truncate">
+              {item.snapshot_name || "Подарок удалён"}
+            </span>
+            <span className="text-sm font-medium text-muted-foreground" >
+              {item.snapshot_price} ед.
+            </span>          
+          </div>
+        </div>
+     
+
+        {/* Правая часть: counterpart */}
+        <div className="flex items-center gap-2 shrink-0">
+          {counterpart ? (
+            <Link href={`/users/${counterpart.id}`} className="hover:opacity-80 transition-opacity">
+              <UserBadge user={counterpart as UserBadgeData} size="sm" />
+            </Link>
+          ) : (
+            <span className="text-xs text-muted-foreground italic">Удалён</span>
+          )}
+        </div>
+      </div>
+
+      {/* Подвал: только сообщение (badges уже в шапке) */}
+      {item.message && (
+        <div className="border-t border-border/50 pt-1.5">
+          <p className="text-xs text-muted-foreground italic truncate" title={item.message}>
+            «{item.message}»
+          </p>
         </div>
       )}
-
-      {/* Название + цена + сообщение */}
-      <div className="flex-1 min-w-0 space-y-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium truncate">
-            {item.snapshot_name || "Подарок удален"}
-          </span>
-          <span className="text-sm font-medium text-yellow-600 dark:text-yellow-500">
-            {item.snapshot_price} 💎
-          </span>
-        </div>
-        {item.message && (
-          <p className="text-[10px] text-muted-foreground italic truncate" title={item.message}>
-            <span className="text-white/40">Сообщение:</span> «{item.message}»
-          </p>
-        )}
-      </div>
-
-      {/* Направление + counterpart */}
-      <div className="flex items-center gap-2 min-w-[180px] shrink-0">
-        {item.direction === "sent" ? (
-          <div className="flex items-center gap-1 text-blue-500 text-xs font-medium shrink-0">
-            <ArrowUpRight className="w-4 h-4" /> Кому:
-          </div>
-        ) : (
-          <div className="flex items-center gap-1 text-destructive text-xs font-medium shrink-0">
-            <ArrowDownLeft className="w-4 h-4" /> От кого:
-          </div>
-        )}
-        {counterpart ? (
-          <UserBadge user={counterpart as UserBadgeData} />
-        ) : (
-          <span className="text-xs text-muted-foreground italic">Система/Удален</span>
-        )}
-      </div>
-
-      {/* Статус */}
-      <div className="flex flex-col gap-1 shrink-0">
-        {item.direction === "sent" ? (
-          item.is_private ? (
-            <Badge variant="secondary">Приватный</Badge>
-          ) : (
-            <Badge variant="success">Публичный</Badge>
-          )
-        ) : item.is_read ? (
-          <Badge variant="secondary">Прочитан</Badge>
-        ) : (
-          <Badge variant="warning">Не прочитан</Badge>
-        )}
-        {item.is_hidden && (
-          <Badge variant="destructive" className="gap-1">
-            <EyeOff className="w-3 h-3" /> Скрыт
-          </Badge>
-        )}
-      </div>
-
-      {/* Дата */}
-      <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-        {item.created_at ? formatRelativeTime(item.created_at) : "—"}
-      </span>
     </div>
   );
 }

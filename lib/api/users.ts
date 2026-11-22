@@ -92,6 +92,9 @@ export interface AdminUserListItem extends UserBadgeData {
   state: string | null;
   country: string | null;
   last_seen: string | null;
+  // updated_at — для сортировки (банк/разбан/деактивация обновляют его,
+  // юзер оказывается сверху списка). created_at оставлен для контекста.
+  updated_at: string | null;
 }
 
 export interface UsersListParams {
@@ -167,6 +170,7 @@ export interface UserProfileDetail {
   country: string | null;
   state: string | null;
   city: string | null;
+  address: string | null;
 }
 
 export interface UserPreferencesDetail {
@@ -190,6 +194,21 @@ export interface UserPreferencesDetail {
   hide_from_search: boolean;
   hide_intimate: boolean;
   disable_photo_comments: boolean;
+
+  // Интерфейс
+  locale: string | null;
+  theme: string | null;
+  chat_widget_enabled: boolean;
+  chat_sound_enabled: boolean;
+  show_quick_replies: boolean;
+
+  // Уведомления
+  push_enabled: boolean;
+  email_enabled: boolean;
+  push_auto_recommendations: boolean;
+  email_auto_recommendations: boolean;
+  allow_auto_messages: boolean;
+  email_settings: Record<string, boolean> | null;
 }
 
 // Ответ GET /admin/users/{id} (UserDetailResource).

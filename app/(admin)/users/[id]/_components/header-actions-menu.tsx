@@ -97,34 +97,31 @@ export function HeaderActionsMenu({ user }: HeaderActionsMenuProps) {
       <DropdownMenu>
         <DropdownMenuTrigger render={
           <Button variant="outline" size="icon">
-            <Settings className="w-4 h-4" />
+            <Settings className="w-3.5 h-3.5" />
           </Button>
         }/>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-42">
           {isDeleted ? (
-            <>
+            <DropdownMenuGroup>
               <DropdownMenuLabel>Аккаунт удалён</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onClick={() =>
-                    restore.mutate(user.id, { onSuccess: refreshUser })
-                  }
-                >
-                  <RotateCcw className="w-4 h-4 text-green-500" /> Восстановить
-                </DropdownMenuItem>
-                <DropdownMenuItem render={
-                  <Link href="/users"><ArrowLeft className="w-4 h-4" /> Назад к списку</Link>
-                }/>
-              </DropdownMenuGroup>
-            </>
+              <DropdownMenuItem
+                onClick={() =>
+                  restore.mutate(user.id, { onSuccess: refreshUser })
+                }
+              >
+                <RotateCcw className="w-4 h-4 text-green-500" /> Восстановить
+              </DropdownMenuItem>
+              <DropdownMenuItem render={
+                <Link href="/users"><ArrowLeft className="w-4 h-4" /> Назад к списку</Link>
+              }/>
+            </DropdownMenuGroup>
           ) : (
             <>
-              <DropdownMenuLabel>Действия</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-
-              {isBanned ? (
-                <DropdownMenuGroup>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Действия</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {isBanned ? (
                   <DropdownMenuItem
                     onClick={() =>
                       unban.mutate(user.id, { onSuccess: refreshUser })
@@ -132,20 +129,20 @@ export function HeaderActionsMenu({ user }: HeaderActionsMenuProps) {
                   >
                     <Unlock className="w-4 h-4 text-green-500" /> Разбанить
                   </DropdownMenuItem>
-                </DropdownMenuGroup>
-              ) : (
-                <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => setBanTarget({ userId: user.id, type: "shadow" })}>
-                    <EyeOff className="w-4 h-4 text-purple-500" /> Теневой бан...
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setBanTarget({ userId: user.id, type: "temp" })}>
-                    <Clock className="w-4 h-4 text-yellow-500" /> Бан на 3 дня...
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setBanTarget({ userId: user.id, type: "permanent" })}>
-                    <Lock className="w-4 h-4 text-red-500" /> Вечный бан...
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              )}
+                ) : (
+                  <>
+                    <DropdownMenuItem onClick={() => setBanTarget({ userId: user.id, type: "shadow" })}>
+                      <EyeOff className="w-4 h-4 text-purple-500" /> Теневой бан...
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setBanTarget({ userId: user.id, type: "temp" })}>
+                      <Clock className="w-4 h-4 text-yellow-500" /> Бан на 3 дня...
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setBanTarget({ userId: user.id, type: "permanent" })}>
+                      <Lock className="w-4 h-4 text-red-500" /> Вечный бан...
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuGroup>
 
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
@@ -180,4 +177,4 @@ export function HeaderActionsMenu({ user }: HeaderActionsMenuProps) {
       />
     </>
   );
-}
+} 

@@ -5,13 +5,10 @@
 // Таб «Знакомства»: свайпы и мэтчи пользователя.
 //
 // Per-user листинг: GET /admin/users/{userId}/dating?swipes_page=&matches_page=
-// (UserListingsController::dating, две независимые пагинации — паттерн
-// reports made/received). Мутации (разрыв мэтча и т.п.) — в глобальном
-// разделе /moderation/dating?mode=swipes|matches&q=<id>.
+// (UserActivityListingsController::dating, две независимые пагинации).
 //
-// Зеркало blade-эталона: двухколоночный grid (слева свайпы, справа мэтчи),
-// в каждой строке — #id (ссылка на модерацию), тип свайпа/статус мэтча
-// с цветным бейджем, собеседник (UserBadge), относительная дата.
+// Структура карточек — по шаблону ReportRow (reports-tab):
+// шапка (ID + дата) → тело (юзер + бейджи) → подвал (опционально).
 
 import { Heart, Star, ThumbsDown, Link2, Undo2, Users } from "lucide-react";
 import Link from "next/link";
@@ -22,7 +19,7 @@ import { TabError, TabLoading } from "@/components/admin/tab-states";
 import { UserBadge } from "@/components/admin/user-badge";
 import { useTabUrl, parsePageParam } from "@/hooks/admin/use-tab-url";
 import { useUserDating } from "@/hooks/admin/use-users";
-import { formatRelativeTime } from "@/lib/format";
+import { formatRelativeTime, formatDateTime } from "@/lib/format";
 import type { UserBadgeData } from "@/lib/types";
 import type { MatchItem } from "@/hooks/admin/use-dating";
 import type { UserSwipeItem } from "@/lib/api/users";
@@ -59,8 +56,6 @@ export function DatingTab({ userId }: DatingTabProps) {
     matches_page: matchesPage,
   });
 
-  // Порядок гардов важен: сначала isLoading/isError, и только потом !data
-  // (комбинированный guard съедал ошибку — см. tab-states.tsx).
   if (isLoading) return <TabLoading label="Загрузка знакомств..." />;
   if (isError) return <TabError label="Не удалось загрузить знакомства" onRetry={refetch} />;
   if (!data) return <TabLoading label="Загрузка знакомств..." />;
@@ -72,7 +67,7 @@ export function DatingTab({ userId }: DatingTabProps) {
       {/* === ЛЕВАЯ КОЛОНКА: СВАЙПЫ === */}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Heart className="w-4 h-4 text-blue-500" /> Свайпы ({swipes.total})
+          <Heart className="w-4 h-4 text-blue-500" /> Все свайпы пользователя: &nbsp; {swipes.total}
         </h3>
 
         {swipes.data.length === 0 ? (
@@ -80,74 +75,35 @@ export function DatingTab({ userId }: DatingTabProps) {
             Пользователь еще никого не оценивал.
           </div>
         ) : (
-          <div className="space-y-2">
-            {swipes.data.map((s) => {
-              const meta = SWIPE_META[s.type] ?? SWIPE_META.dislike;
-              const Icon = meta.icon;
-              return (
-                <div
-                  key={s.id}
-                  className="flex items-center gap-3 p-3 border border-border rounded-lg bg-card hover:bg-muted/30 transition-colors"
-                >
-                  {/* #id → модерация, mode=swipes */}
-                  <Link
-                    href={`/moderation/dating?mode=swipes&q=${s.id}`}
-                    className="text-xs font-mono text-blue-500 hover:underline shrink-0"
-                    title="Найти в модерации"
-                  >
-                    #{s.id}
-                  </Link>
+          <>
+            <div className="space-y-2">
+              {swipes.data.map((s) => {
+                const meta = SWIPE_META[s.type] ?? SWIPE_META.dislike;
+                const Icon = meta.icon;
+                return (
+                  <SwipeRow key={s.id} swipe={s} meta={meta} Icon={Icon} />
+                );
+              })}
+            </div>
 
-                  {/* Тип свайпа — цветной бейдж */}
-                  <span
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${meta.className}`}
-                  >
-                    <Icon className="w-3 h-3" />
-                    {meta.label}
-                  </span>
-
-                  {/* Собеседник (кого оценил) */}
-                  <div className="flex-1 min-w-0">
-                    {s.targetUser ? (
-                      <UserBadge user={s.targetUser as UserBadgeData} />
-                    ) : (
-                      <span className="text-sm text-muted-foreground italic">Удален</span>
-                    )}
-                  </div>
-
-                  {/* Rewind-бейдж */}
-                  {s.rewinded && (
-                    <Badge variant="outline" className="gap-1 shrink-0">
-                      <Undo2 className="w-3 h-3" />
-                      откат
-                    </Badge>
-                  )}
-
-                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                    {s.created_at ? formatRelativeTime(s.created_at) : "—"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+            <MiniPagination
+              currentPage={swipes.current_page}
+              lastPage={swipes.last_page}
+              from={swipes.from}
+              to={swipes.to}
+              total={swipes.total}
+              onChangePage={(next) =>
+                replace((p) => (next <= 1 ? p.delete("swipes_page") : p.set("swipes_page", String(next))))
+              }
+            />
+          </>
         )}
-
-        <MiniPagination
-          currentPage={swipes.current_page}
-          lastPage={swipes.last_page}
-          from={swipes.from}
-          to={swipes.to}
-          total={swipes.total}
-          onChangePage={(next) =>
-            replace((p) => (next <= 1 ? p.delete("swipes_page") : p.set("swipes_page", String(next))))
-          }
-        />
       </div>
 
       {/* === ПРАВАЯ КОЛОНКА: МЭТЧИ === */}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Link2 className="w-4 h-4 text-destructive" /> Мэтчи ({matches.total})
+          <Link2 className="w-4 h-4 text-destructive" /> Все мэтчи пользователя: &nbsp; {matches.total}
         </h3>
 
         {matches.data.length === 0 ? (
@@ -155,62 +111,151 @@ export function DatingTab({ userId }: DatingTabProps) {
             У пользователя нет мэтчей.
           </div>
         ) : (
-          <div className="space-y-2">
-            {matches.data.map((m) => {
-              // Partner — тот из user1/user2, кто НЕ текущий юзер.
-              const partner = m.user1?.id === userId ? m.user2 : m.user1;
-              const meta = MATCH_META[m.status] ?? MATCH_META.active;
-              return (
-                <div
-                  key={m.id}
-                  className="flex items-center gap-3 p-3 border border-border rounded-lg bg-card hover:bg-muted/30 transition-colors"
-                >
-                  {/* #id → модерация, mode=matches */}
-                  <Link
-                    href={`/moderation/dating?mode=matches&q=${m.id}`}
-                    className="text-xs font-mono text-blue-500 hover:underline shrink-0"
-                    title="Найти в модерации"
-                  >
-                    #{m.id}
-                  </Link>
+          <>
+            <div className="space-y-2">
+              {matches.data.map((m) => (
+                <MatchRow key={m.id} match={m} userId={userId} />
+              ))}
+            </div>
 
-                  {/* Собеседник */}
-                  <div className="flex-1 min-w-0">
-                    {partner ? (
-                      <UserBadge user={partner as UserBadgeData} />
-                    ) : (
-                      <span className="text-sm text-muted-foreground italic">Удален</span>
-                    )}
-                  </div>
-
-                  {/* Статус мэтча — цветной бейдж */}
-                  <span
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${meta.className}`}
-                  >
-                    <Users className="w-3 h-3" />
-                    {meta.label}
-                  </span>
-
-                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                    {m.created_at ? formatRelativeTime(m.created_at) : "—"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+            <MiniPagination
+              currentPage={matches.current_page}
+              lastPage={matches.last_page}
+              from={matches.from}
+              to={matches.to}
+              total={matches.total}
+              onChangePage={(next) =>
+                replace((p) => (next <= 1 ? p.delete("matches_page") : p.set("matches_page", String(next))))
+              }
+            />
+          </>
         )}
-
-        <MiniPagination
-          currentPage={matches.current_page}
-          lastPage={matches.last_page}
-          from={matches.from}
-          to={matches.to}
-          total={matches.total}
-          onChangePage={(next) =>
-            replace((p) => (next <= 1 ? p.delete("matches_page") : p.set("matches_page", String(next))))
-          }
-        />
       </div>
+    </div>
+  );
+}
+
+// ============================================
+// СТРОКА СВАЙПА — по шаблону ReportRow
+// ============================================
+
+function SwipeRow({
+  swipe,
+  meta,
+  Icon,
+}: {
+  swipe: UserSwipeItem;
+  meta: { label: string; icon: typeof Heart; className: string };
+  Icon: typeof Heart;
+}) {
+  return (
+    <div className="p-3 bg-card border border-border rounded-lg space-y-2">
+      {/* Шапка: Swipe #id + дата справа */}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <Link
+          href={`/moderation/dating?mode=swipes&q=${swipe.id}`}
+          className="font-mono text-blue-500 hover:underline shrink-0"
+          title="Найти в модерации"
+        >
+          Swipe #{swipe.id}
+        </Link>
+        {swipe.created_at && (
+          <span title={formatDateTime(swipe.created_at)} className="ml-auto whitespace-nowrap">
+            {formatRelativeTime(swipe.created_at)}
+          </span>
+        )}
+      </div>
+
+      {/* Тело: UserBadge слева, type badge + rewind справа */}
+      <div className="flex justify-between items-start gap-3">
+        {/* Левая часть: юзер (кого оценил) */}
+        <div className="min-w-0">
+          {swipe.targetUser ? (
+            <Link href={`/users/${swipe.targetUser.id}`} className="block hover:opacity-80 transition-opacity">
+              <UserBadge user={swipe.targetUser as UserBadgeData} size="sm" />
+            </Link>
+          ) : (
+            <span className="text-sm text-muted-foreground italic">Удалён</span>
+          )}
+        </div>
+
+        {/* Правая часть: тип свайпа + rewind */}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${meta.className}`}
+          >
+            <Icon className="w-3 h-3" />
+            {meta.label}
+          </span>
+          {swipe.rewinded && (
+            <Badge variant="outline" className="gap-1 text-xs px-1.5 py-0">
+              <Undo2 className="w-3 h-3" />
+              откат
+            </Badge>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// СТРОКА МЭТЧА — по шаблону ReportRow
+// ============================================
+
+function MatchRow({ match, userId }: { match: MatchItem; userId: number }) {
+  // Partner — тот из user1/user2, кто НЕ текущий юзер.
+  const partner = match.user1?.id === userId ? match.user2 : match.user1;
+  const meta = MATCH_META[match.status] ?? MATCH_META.active;
+
+  return (
+    <div className="p-3 bg-card border border-border rounded-lg space-y-2">
+      {/* Шапка: Match #id + дата справа */}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <Link
+          href={`/moderation/dating?mode=matches&q=${match.id}`}
+          className="font-mono text-blue-500 hover:underline shrink-0"
+          title="Найти в модерации"
+        >
+          Match #{match.id}
+        </Link>
+        {match.created_at && (
+          <span title={formatDateTime(match.created_at)} className="ml-auto whitespace-nowrap">
+            {formatRelativeTime(match.created_at)}
+          </span>
+        )}
+      </div>
+
+      {/* Тело: UserBadge слева, status badge справа */}
+      <div className="flex justify-between items-start gap-3">
+        {/* Левая часть: собеседник */}
+        <div className="min-w-0">
+          {partner ? (
+            <Link href={`/users/${partner.id}`} className="block hover:opacity-80 transition-opacity">
+              <UserBadge user={partner as UserBadgeData} size="sm" />
+            </Link>
+          ) : (
+            <span className="text-sm text-muted-foreground italic">Удалён</span>
+          )}
+        </div>
+
+        {/* Правая часть: статус мэтча */}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${meta.className}`}
+          >
+            <Users className="w-3 h-3" />
+            {meta.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Подвал: инфо о разрыве (если unmatched) */}
+      {match.status === "unmatched" && match.unmatched_at && (
+        <div className="text-xs text-muted-foreground border-t border-border/50 pt-1.5">
+          Разорван: {formatRelativeTime(match.unmatched_at)}
+        </div>
+      )}
     </div>
   );
 }

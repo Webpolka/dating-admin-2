@@ -54,6 +54,7 @@ export function BulkGenerateModal({
 
   // Очистка errors при закрытии модалки.
   useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!open) setErrors({});
   }, [open]);
 

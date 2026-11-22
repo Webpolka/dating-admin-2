@@ -9,21 +9,12 @@
 // Причины блокировок — App\Enums\UserBlockReason на бэке
 // (spam, insult, creepy, scam, other) — зеркалятся в lib/blocks.ts.
 //
-// ВАЖНО про импорты (исправлено в ЧАСТИ 3.5):
-//   - getBlockReason живёт в @/lib/blocks (НЕ в @/lib/api/users —
-//     в репо такого экспорта нет, был несуществующий импорт)
-//   - тип пагинатора — конкретный UserBlocksPaginated (НЕ дженерик
-//     Paginated<T>, которого в репо тоже не существует)
-//   - timeAgo → formatRelativeTime из @/lib/format (timeAgo нет в репо)
-//
-// URL-стейт (сделано в ЧАСТИ 4): ручной useRouter + useSearchParams +
-// new URLSearchParams + router.replace заменён на useTabUrl + parsePageParam —
-// ровно тот паттерн, для которого хук и создавался (см. его header-comment).
-// Имена параметров (blocked_page / blockers_page) и поведение сохранены.
+// Структура карточки BlockRow — по шаблону ReportRow (reports-tab):
+// шапка (ID + дата) → тело (юзер + бейджи) → подвал (действие).
 
 import { useState } from "react";
 import Link from "next/link";
-import { UserX, ShieldX, Trash2, Loader2 } from "lucide-react";
+import { UserX, ShieldX, Trash2, Loader2, Unlock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/admin/user-badge";
@@ -72,7 +63,7 @@ export function BlocksTab({ userId }: BlocksTabProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <BlocksColumn
-        title="Заблокировал"
+        title="Все кого заблокировал пользователь:"
         icon={UserX}
         iconColor="text-blue-500"
         paginator={data.blocked}
@@ -86,7 +77,7 @@ export function BlocksTab({ userId }: BlocksTabProps) {
       />
 
       <BlocksColumn
-        title="Заблокировали его"
+        title="Пользователи которые заблокировали:"
         icon={ShieldX}
         iconColor="text-destructive"
         paginator={data.blockers}
@@ -126,7 +117,7 @@ function BlocksColumn({
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-semibold flex items-center gap-2">
-        <Icon className={`w-4 h-4 ${iconColor}`} /> {title} ({paginator.total})
+        <Icon className={`w-4 h-4 ${iconColor}`} /> {title} &nbsp; {paginator.total}
       </h3>
 
       {paginator.data.length === 0 ? (
@@ -156,13 +147,11 @@ function BlocksColumn({
 }
 
 // ============================================
-// СТРОКА БЛОКИРОВКИ
+// СТРОКА БЛОКИРОВКИ — по шаблону ReportRow
 // ============================================
 
 function BlockRow({ block, userId }: { block: UserBlockListItem; userId: number }) {
   const unblock = useUnblockUser();
-
-  // Диалог подтверждения вместо window.confirm.
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const reason = getBlockReason(block.reason);
@@ -176,56 +165,66 @@ function BlockRow({ block, userId }: { block: UserBlockListItem; userId: number 
 
   return (
     <div className="p-3 bg-card border border-border rounded-lg space-y-2">
-      {/* Связанный юзер (кого заблокировал / кто заблокировал) */}
-      {block.user ? (
-        <Link href={`/users/${block.user.id}`} className="block hover:opacity-80 transition-opacity">
-          <UserBadge user={block.user} size="sm" />
-        </Link>
-      ) : (
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-            <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-          </div>
-          <span className="text-sm text-muted-foreground italic">Удалён</span>
-        </div>
-      )}
+      {/* Шапка: Block #ID + дата справа */}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span className="font-mono text-muted-foreground shrink-0">
+          Block #{block.id}
+        </span>
+        {block.created_at && (
+          <span title={formatDateTime(block.created_at)} className="ml-auto whitespace-nowrap">
+            Создана: {formatRelativeTime(block.created_at)}
+          </span>
+        )}
+      </div>
 
-      {/* Причина + дата + кнопка принудительного снятия */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* Тело: UserBadge слева, причина badge справа */}
+      <div className="flex justify-between items-start gap-3">
+        {/* Левая часть: юзер */}
+        <div className="min-w-0">
+          {block.user ? (
+            <Link href={`/users/${block.user.id}`} className="block hover:opacity-80 transition-opacity">
+              <UserBadge user={block.user} size="sm" />
+            </Link>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+              </div>
+              <span className="text-sm text-muted-foreground italic">Удалён</span>
+            </div>
+          )}
+        </div>
+
+        {/* Правая часть: причина блокировки */}
+        <div className="flex flex-col items-end gap-1 shrink-0">
           {reason ? (
             <span
-              className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${reason.color}`}
+              className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${reason.color}`}
             >
               {reason.label}
             </span>
           ) : (
-            <span className="text-[10px] text-muted-foreground italic">Причина не указана</span>
-          )}
-
-          {block.created_at && (
-            <span
-              className="text-[10px] text-muted-foreground"
-              title={formatDateTime(block.created_at)}
-            >
-              {formatRelativeTime(block.created_at)}
-            </span>
+            <span className="text-xs text-muted-foreground italic">Причина не указана</span>
           )}
         </div>
+      </div>
 
+      {/* Подвал: кнопка принудительного снятия — border-t */}
+      <div className="border-t border-border/50 pt-1.5 flex justify-end">
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           onClick={() => setConfirmOpen(true)}
           disabled={unblock.isPending}
-          className="text-destructive hover:text-destructive h-7 w-7"
+          className="text-destructive hover:text-destructive"
           title="Снять блокировку"
         >
           {unblock.isPending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
           ) : (
-            <Trash2 className="w-4 h-4" />
+            <Unlock className="w-3.5 h-3.5 mr-1.5" />
           )}
+          Снять блокировку
         </Button>
       </div>
 

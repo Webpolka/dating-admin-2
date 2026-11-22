@@ -72,7 +72,7 @@ export function BanUserDialog({ target, isPending, onClose, onSubmit }: BanUserD
       {/* Тип блокировки */}
       <FormField label="Тип блокировки" hint={selectedType?.hint}>
         <Select value={type} onValueChange={(v) => v && setType(v as BanType)}>
-          <SelectTrigger>
+          <SelectTrigger className="w-full">
             <SelectValue>
               {(v: string | null) => BAN_TYPE_OPTIONS.find((t) => t.value === v)?.label ?? v}
             </SelectValue>
@@ -95,7 +95,7 @@ export function BanUserDialog({ target, isPending, onClose, onSubmit }: BanUserD
           }
         >
           <Select value={String(days)} onValueChange={(v) => v && setDays(Number(v))}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue>
                 {(v: string | null) =>
                   BAN_DURATION_PRESETS.find((p) => String(p.value) === v)?.label ?? v
@@ -114,7 +114,7 @@ export function BanUserDialog({ target, isPending, onClose, onSubmit }: BanUserD
       {/* Причина (обязательная) */}
       <FormField label="Причина" required>
         <Select value={reason} onValueChange={(v) => v && setReason(v as BanReason)}>
-          <SelectTrigger>
+          <SelectTrigger className="w-full">
             <SelectValue>
               {(v: string | null) =>
                 v === null

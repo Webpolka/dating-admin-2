@@ -85,10 +85,17 @@ export function BansTab({ userId }: BansTabProps) {
 
   const handleApplyBan = () => {
     if (banReason === "") return;
-    ban.mutate({ userId, type: banType, reason: banReason });
-    // Сбрасываем форму — иначе при повторном открытии таба останется старый выбор.
-    setBanReason("");
-    setBanType("permanent");
+    ban.mutate(
+      { userId, type: banType, reason: banReason },
+      {
+        // Сбрасываем форму ТОЛЬКО при успехе — если мутация упадёт,
+        // юзер не потеряет выбранные причину/тип.
+        onSuccess: () => {
+          setBanReason("");
+          setBanType("permanent");
+        },
+      },
+    );
   };
 
   const handleUnbanConfirm = () => {
@@ -145,7 +152,7 @@ export function BansTab({ userId }: BansTabProps) {
               <h3 className="text-sm font-semibold mb-3 text-green-600 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4" /> Снять ограничения
               </h3>
-              <p className="text-xs text-muted-foreground mb-3 flex-grow">
+              <p className="text-xs text-muted-foreground mb-3 grow">
                 Полностью снять бан/теневой бан и восстановить аккаунт. Пользователь снова сможет заходить в приложение.
               </p>
               <Button
@@ -168,7 +175,7 @@ export function BansTab({ userId }: BansTabProps) {
                 <ShieldX className="w-4 h-4" /> Заблокировать пользователя
               </h3>
 
-              <div className="space-y-4 flex-grow mt-3">
+              <div className="space-y-4 grow mt-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground tracking-wider">
@@ -307,7 +314,7 @@ function BanHistoryTimeline({
         {isFetching && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
       </h3>
 
-      <div className="space-y-4 relative before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-px before:bg-border">
+      <div className="space-y-4 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-border">
         {entries.map((log) => {
           const meta = getLogMeta(log);
           const Icon = meta.icon;
@@ -462,8 +469,10 @@ function getLogMeta(log: BanHistoryEntry): {
     } else if (banType === "temp" || after.banned_until) {
       title = "Временный бан";
       const startDate = new Date(log.created_at);
-      const endDateStr = after.banned_until as string | undefined;
-      const endDate = endDateStr ? new Date(endDateStr) : null;
+      // Бек пишет banned_until через toDateTimeString() — формат "Y-m-d H:i:s"
+      // (с пробелом вместо T). Некоторые браузеры не парсят это → заменяем пробел на T.
+      const endDateStr = after.banned_until as string | undefined;      
+      const endDate = endDateStr ? new Date(endDateStr.replace(" ", "T")) : null;
       const days = endDate
         ? Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)))
         : 0;

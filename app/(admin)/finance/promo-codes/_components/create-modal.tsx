@@ -84,6 +84,7 @@ export function CreateModal({
 
   // Очистка errors при закрытии модалки.
   useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!open) setErrors({});
   }, [open]);
 
@@ -101,6 +102,7 @@ export function CreateModal({
   useEffect(() => {
     if (!open) return;
     if (editPromo) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
       setCode(editPromo.code);
       setDiscountType(editPromo.discount_type);
       setDiscountValue(editPromo.discount_value ? String(editPromo.discount_value) : "");
@@ -131,8 +133,7 @@ export function CreateModal({
       setExpiresAt("");
       setSelectedUser(null);
       setIsActive(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }    
   }, [open, editPromo]);
 
   const selectedType = PROMO_CODE_TYPES.find((t) => t.value === discountType);

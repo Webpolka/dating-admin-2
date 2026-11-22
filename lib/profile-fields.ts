@@ -253,3 +253,41 @@ export function getSearchFilterLabels(
 
   return labels;
 }
+// ============================================================
+// ПОЛЯ АВТОПОРТРЕТА (self_portrait jsonb)
+// ============================================================
+// Синхронизировано с полями заполнения на вебе — эти же ключи
+// сохраняются в user_profiles.self_portrait (jsonb).
+// label — человекочитаемая подпись для админки.
+
+export const SELF_PORTRAIT_FIELDS = [
+  { key: "education",  label: "Ваше образование" },
+  { key: "musical",    label: "Любимая музыка" },
+  { key: "film",       label: "Любимые фильмы" },
+  { key: "hero",       label: "Любимые книги" },
+  { key: "dish",       label: "Любимые блюда" },
+  { key: "city",       label: "Любимые города и страны" },
+  { key: "pastime",    label: "Любимые занятия" },
+  { key: "place",      label: "Любимые места" },
+  { key: "revelation", label: "Самое хорошее в жизни" },
+  { key: "worse",      label: "Самое ужасное в жизни" },
+  { key: "quality",    label: "Какие качества вы цените в людях" },
+  { key: "mistake",    label: "Что вы могли бы простить, а что нет" },
+  { key: "religion",   label: "Какое место занимает в вашей жизни религия" },
+  { key: "character",  label: "Ваши достоинства" },
+  { key: "demerit",    label: "Ваши недостатки" },
+  { key: "job",        label: "Чем интересна ваша работа" },
+  { key: "adventure",  label: "Самый авантюрный поступок" },
+  { key: "tv",         label: "Что вам нравится или не нравится в телевизоре" },
+  { key: "mat",        label: "Как вы относитесь к мату" },
+] as const;
+
+/** Map key → label для быстрого lookup. */
+export const SELF_PORTRAIT_LABELS: Record<string, string> = Object.fromEntries(
+  SELF_PORTRAIT_FIELDS.map((f) => [f.key, f.label]),
+);
+
+/** Получить label по ключу self_portrait (fallback на сам ключ с заменой _). */
+export function getSelfPortraitLabel(key: string): string {
+  return SELF_PORTRAIT_LABELS[key] ?? key.replace(/_/g, " ");
+} 

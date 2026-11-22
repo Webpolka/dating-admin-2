@@ -15,6 +15,8 @@ import { Snowflake, X, RotateCcw, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRestoreUser } from "@/hooks/admin/use-users";
 import type { UserDetail } from "@/lib/api/users";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface DeletedUserOverlayProps {
   user: UserDetail;
@@ -28,8 +30,9 @@ export function DeletedUserOverlay({ user }: DeletedUserOverlayProps) {
   if (!show) return null;
 
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none bg-blue-500/5 backdrop-blur-[1px] rounded-lg pb-12">
-      <div className="relative flex flex-col items-center gap-2 p-6 pointer-events-auto bg-card/95 border border-dashed border-border rounded-xl shadow-2xl text-center max-w-sm">
+    <div className="fixed inset-0 z-20 pointer-events-auto">
+    <div className="absolute md:top-16 md:left-64 top-0 left-0 right-0 bottom-0 pointer-events-none flex flex-col items-center justify-center bg-black/50 backdrop-blur-[1px]">
+      <div className="relative flex flex-col items-center pointer-events-auto gap-2 p-6 bg-card/95 border border-dashed border-border rounded-xl shadow-2xl text-center max-w-sm">
         <button
           onClick={() => setShow(false)}
           className="absolute top-3 right-3 p-1 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
@@ -51,14 +54,17 @@ export function DeletedUserOverlay({ user }: DeletedUserOverlayProps) {
             size="sm"
           >
             <RotateCcw className="w-4 h-4 mr-2" /> Восстановить аккаунт
-          </Button>
-          <Button variant="outline" size="sm" render={
-            <Link href="/users">
-              <ArrowLeft className="w-4 h-4 mr-2" /> К списку
-            </Link>
-          }/>
+          </Button>         
+
+          <Link
+            href="/users"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" /> К списку
+          </Link>
         </div>
       </div>
+    </div>
     </div>
   );
 } 

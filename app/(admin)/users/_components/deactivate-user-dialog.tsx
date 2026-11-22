@@ -52,7 +52,7 @@ export function DeactivateUserDialog({
           value={reason}
           onValueChange={(v) => setReason(v as DeletionReason)}
         >
-          <SelectTrigger>
+          <SelectTrigger className="w-full">
             <SelectValue>
               {(v: string) =>
                 v === ""

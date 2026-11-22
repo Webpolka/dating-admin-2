@@ -3,6 +3,8 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   User,
   Shield,
@@ -97,26 +99,31 @@ export function UserTabsNav({ userId }: UserTabsNavProps) {
   }, [pathname]);
 
   return (
-    <div className="border-b border-border">
-      <nav className="flex gap-x-4 flex-wrap">
+    <div className="py-3">
+      {/* Обычные кнопки-табы (как StatusTabs на других страницах),
+          flex-wrap — переносятся на вторую строку если не помещаются. */}
+      <nav className="flex flex-wrap gap-2">
         {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           const href = `/users/${userId}/${tab.key}`;
           const isActive = activeTab === tab.key;
 
           return (
-            <Link
-              key={tab.key}
-              href={href}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors inline-flex items-center gap-1.5 ${
-                isActive
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {tab.label}
-            </Link>
+          <Link
+            key={tab.key}
+            href={href}
+            aria-current={isActive ? "page" : undefined}
+            className={cn(
+              buttonVariants({
+                variant: isActive ? "default" : "outline",
+                size: "sm",
+              }),
+            )}
+          >
+            <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            {tab.label}
+          </Link>
+           
           );
         })}
       </nav>
