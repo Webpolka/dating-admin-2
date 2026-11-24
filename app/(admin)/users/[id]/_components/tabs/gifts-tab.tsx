@@ -231,7 +231,7 @@ function GiftRow({ item }: { item: UserGiftTabItem }) {
             </div>
           )}
           <div className="min-w-0">
-            <span className="text-md font-medium block truncate">
+            <span className="text-sm font-medium block truncate">
               {item.snapshot_name || "Подарок удалён"}
             </span>
             <span className="text-sm font-medium text-muted-foreground" >

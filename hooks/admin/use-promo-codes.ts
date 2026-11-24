@@ -69,6 +69,7 @@ export type PromoCodeUsageItem = {
     status: string;
     type: string;
     created_at: string | null;
+    original_amount: number | null;
   } | null;
 };
 
@@ -132,8 +133,8 @@ export const PROMO_CODE_TYPES: Array<{
 }> = [
   { value: "percent", label: "Скидка %", gives_free_days: false },
   { value: "fixed", label: "Скидка ₽", gives_free_days: false },
-  { value: "premium", label: "Бесплатный Premium (дни)", gives_free_days: true },
-  { value: "vip", label: "Бесплатный VIP (дни)", gives_free_days: true },
+  { value: "premium", label: "Бесплатные дни Premium", gives_free_days: true },
+  { value: "vip", label: "Бесплатные дни VIP", gives_free_days: true },
 ];
 
 export function getPromoTypeLabel(type: string | null): string {

@@ -2,11 +2,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTransactionDetail } from "@/hooks/admin/use-transactions";
 import { UserBadge } from "@/components/admin/user-badge";
 import { FormModal } from "@/components/admin/form-modal";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Undo2 } from "lucide-react";
+import { Loader2, Undo2, Ticket } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 
 export function TransactionDetailModal({
@@ -136,6 +137,32 @@ export function TransactionDetailModal({
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Кем:</span>
                   <span className="font-medium">{refundInfo.initiatedBy}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Промокод — если был применён */}
+          {tx.promo_code_id && (
+            <div className="bg-blue-500/5 border border-blue-500/20 rounded-md p-4 space-y-2">
+              <p className="text-xs font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                <Ticket className="w-3.5 h-3.5" />
+                Промокод применён
+              </p>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Промокод:</span>
+                <Link
+                  href={`/finance/promo-codes/${tx.promo_code_id}`}
+                  className="font-mono text-blue-500 hover:underline font-medium"
+                  onClick={() => onClose()}
+                >
+                  #{tx.promo_code_id}
+                </Link>
+              </div>
+              {tx.promo_code_discount && tx.promo_code_discount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Скидка:</span>
+                  <span className="text-red-500 font-medium">−{tx.promo_code_discount} ₽</span>
                 </div>
               )}
             </div>

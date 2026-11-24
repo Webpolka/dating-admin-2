@@ -5,15 +5,18 @@
 // Таб «Промокоды»: история применений промокодов пользователем.
 //
 // Per-user листинг: GET /admin/users/{userId}/promocodes?page=
-// (UserListingsController::promocodes). applied_discount — снапшот скидки
-// в рублях на момент применения (для фин. отчётов). Управление промокодами —
-// в глобальном разделе (там же редактирование/деактивация самих кодов).
 //
-// Зеркало blade-эталона: таблица с колонками ID/Промокод/Скидка(тип+значение)
-// /Транзакция(ссылка на /finance/transactions?q={id})/Дата. discount_type —
-// percent/fixed/premium/vip, для premium/vip показываем duration_days.
+// Колонки таблицы (полная финансовая прозрачность):
+//   1. ID — #usage_id
+//   2. Код — кликабельная ссылка на detail page промокода
+//   3. Тип — DiscountBadge (Crown/Gem/Percent/₽)
+//   4. Скидка — значение (50% / 250₽ / 30 дней)
+//   5. Исходная — original_amount (из transaction.meta, цена плана ДО скидки)
+//   6. Списано — applied_discount ₽ (snapshot на момент применения)
+//   7. Итог — transaction.amount ₽ (final, после скидки) или "Бесплатно"
+//   8. Дата — created_at
 
-import { Crown, Percent, Ticket } from "lucide-react";
+import { Crown, Gem, Percent, Ticket } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +29,7 @@ import { TabError } from "@/components/admin/tab-states";
 import { useTabUrl, parsePageParam } from "@/hooks/admin/use-tab-url";
 import { useUserPromocodes } from "@/hooks/admin/use-users";
 import { formatDateTime } from "@/lib/format";
+import type { UserPromocodeItem } from "@/lib/api/users";
 
 interface PromocodesTabProps {
   userId: number;
@@ -45,83 +49,33 @@ export function PromocodesTab({ userId }: PromocodesTabProps) {
 
   return (
     <div className="space-y-4">
+      <h3 className="text-sm font-semibold flex items-center gap-2">
+        <Ticket className="w-4 h-4" /> Использованные промокоды: &nbsp; {data?.total ?? 0}
+      </h3>
+
       <div className="rounded-md border border-border bg-card overflow-x-auto">
-        <Table className="w-full min-w-160">
+        <Table className="w-full min-w-[60rem]">
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="w-16">ID</TableHead>
-              <TableHead>Промокод</TableHead>
-              <TableHead className="w-44">Скидка / Бонус</TableHead>
-              <TableHead className="w-48">Транзакция</TableHead>
-              <TableHead className="w-32">Дата применения</TableHead>
+              <TableHead className="w-14">ID</TableHead>
+              <TableHead className="w-32">Код</TableHead>
+              <TableHead className="w-28">Тип</TableHead>
+              <TableHead className="w-24">Скидка</TableHead>
+              <TableHead className="w-24">Исходная</TableHead>
+              <TableHead className="w-24">Списано</TableHead>
+              <TableHead className="w-24">Транзакция</TableHead>
+              <TableHead className="w-24">Итог</TableHead>
+              <TableHead className="w-32">Дата</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableLoadingRow colSpan={5} />
+              <TableLoadingRow colSpan={9} />
             ) : usages.length === 0 ? (
-              <TableEmptyRow colSpan={5} title="Пользователь не использовал промокоды" />
+              <TableEmptyRow colSpan={9} title="Пользователь не использовал промокоды" />
             ) : (
               usages.map((u) => (
-                <TableRow key={u.id}>
-                  {/* ID — моно */}
-                  <TableCell className="text-xs font-mono text-muted-foreground">
-                    #{u.id}
-                  </TableCell>
-
-                  {/* Промокод — моно в плашке, или «Код удалён» */}
-                  <TableCell>
-                    {u.promo_code ? (
-                      <span className="text-sm font-mono font-medium bg-muted px-2 py-0.5 rounded">
-                        {u.promo_code.code}
-                      </span>
-                    ) : (
-                      <span className="text-sm font-mono text-muted-foreground italic">
-                        Код удалён
-                      </span>
-                    )}
-                  </TableCell>
-
-                  {/* Скидка: тип-бейдж + значение + applied_discount */}
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      {u.promo_code ? (
-                        <DiscountBadge
-                          type={u.promo_code.discount_type}
-                          value={u.promo_code.discount_value}
-                          durationDays={u.promo_code.duration_days}
-                        />
-                      ) : (
-                        <Badge variant="secondary">Архив</Badge>
-                      )}
-                      {u.applied_discount > 0 && (
-                        <span className="text-[10px] text-muted-foreground">
-                          Списано: {u.applied_discount} ₽
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-
-                  {/* Транзакция — ссылка на /finance/transactions */}
-                  <TableCell className="text-xs">
-                    {u.transaction ? (
-                      <Link
-                        href={`/finance/transactions?q=${u.transaction.id}`}
-                        className="text-blue-500 hover:underline font-mono"
-                        title="Найти в журнале транзакций"
-                      >
-                        #{u.transaction.id} ({u.transaction.amount} ₽)
-                      </Link>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-
-                  {/* Дата применения */}
-                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                    {u.created_at ? formatDateTime(u.created_at) : "—"}
-                  </TableCell>
-                </TableRow>
+                <PromocodeUsageRow key={u.id} u={u} />
               ))
             )}
           </TableBody>
@@ -140,15 +94,136 @@ export function PromocodesTab({ userId }: PromocodesTabProps) {
       )}
 
       <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-        <Ticket className="w-3.5 h-3.5" />
-        Скидка зафиксирована на момент применения; 1 промокод = 1 применение на пользователя.
+        <Ticket className="w-3.5 h-3.5" />       
+        «Исходная» = цена плана до скидки (из transaction.meta.original_amount). «Списано» = снапшот скидки на момент применения. «Итог» = реально списано (amount после скидки).
+        Для Premium/VIP без оплаты — «Бесплатно» (redeem дней).
       </p>
     </div>
   );
 }
 
 // ============================================
-// БЕЙДЖ СКИДКИ (по discount_type)
+// СТРОКА ИСПОЛЬЗОВАНИЯ ПРОМОКОДА
+// ============================================
+
+function PromocodeUsageRow({ u }: { u: UserPromocodeItem }) {
+  // Данные приходят с бека — фронт НЕ вычисляет.
+  // original_amount — из бека (transaction.original_amount из meta).
+  // Может прийти как number, null ИЛИ undefined (если бек не отдал поле).
+  // Поэтому проверяем typeof === 'number', а не !== null.
+  const hasTransaction = !!u.transaction;
+  const original = hasTransaction ? u.transaction!.original_amount : null;
+  // final = transaction.amount (цена ПОСЛЕ скидки).
+  const final = hasTransaction ? u.transaction!.amount : null;
+  // isRedeem = premium/vip без транзакции (бесплатные дни).
+  const isRedeem = !hasTransaction;
+
+  const type = u.promo_code?.discount_type;
+  const value = u.promo_code?.discount_value;
+  const durationDays = u.promo_code?.duration_days;
+
+  // Текстовое значение скидки для колонки "Скидка".
+  const discountText = (() => {
+    if (!type || !value) return "—";
+    switch (type) {
+      case "percent": return `${value}%`;
+      case "fixed": return `${value} ₽`;
+      case "premium":
+      case "vip": return durationDays ? `${durationDays} дн.` : "—";
+      default: return "—";
+    }
+  })();
+
+  return (
+    <TableRow>
+      {/* 1. ID */}
+      <TableCell className="text-xs font-mono text-muted-foreground">
+        #{u.id}
+      </TableCell>
+
+      {/* 2. Код — кликабельная ссылка */}
+      <TableCell>
+        {u.promo_code ? (
+          <Link
+            href={`/finance/promo-codes/${u.promo_code.id}`}
+            className="text-sm font-mono font-medium bg-muted px-2 py-0.5 rounded text-blue-500 hover:underline"
+            title="Открыть детали промокода"
+          >
+            {u.promo_code.code}
+          </Link>
+        ) : (
+          <span className="text-sm font-mono text-muted-foreground italic">Код удалён</span>
+        )}
+      </TableCell>
+
+      {/* 3. Тип — DiscountBadge с иконкой */}
+      <TableCell>
+        {type ? (
+          <DiscountBadge type={type} value={value ?? 0} durationDays={durationDays ?? null} />
+        ) : (
+          <Badge variant="secondary">Архив</Badge>
+        )}
+      </TableCell>
+
+      {/* 4. Скидка — значение (50% / 250₽ / 30 дн.) */}
+      <TableCell className="text-xs font-medium text-muted-foreground">
+        {discountText}
+      </TableCell>
+
+      {/* 5. Исходная — цена до скидки (из meta.original_amount) */}
+      <TableCell className="text-xs text-muted-foreground tabular-nums">
+        {typeof original === "number" ? (
+          <span className="line-through">{original.toFixed(2)} ₽</span>
+        ) : (
+          <span className="text-muted-foreground/50 italic">—</span>
+        )}
+      </TableCell>
+
+      {/* 6. Списано — applied_discount (snapshot) */}
+      <TableCell className="text-xs tabular-nums">
+        {u.applied_discount > 0 ? (
+          <span className="text-red-500 font-medium">−{u.applied_discount.toFixed(2)} ₽</span>
+        ) : (
+          <span className="text-muted-foreground/50 italic">—</span>
+        )}
+      </TableCell>
+
+      {/* 7. Транзакция — ID (кликабельная ссылка) */}
+      <TableCell className="text-xs text-center">
+        {hasTransaction ? (
+          <Link
+            href={`/finance/transactions?q=${u.transaction!.id}`}
+            className="font-mono text-blue-500 hover:underline"
+            title={`#${u.transaction!.id} · ${u.transaction!.status}`}
+          >
+           Transaction #{u.transaction!.id}
+          </Link>
+        ) : (
+          <span className="text-muted-foreground/50 italic">—</span>
+        )}
+      </TableCell>
+
+      {/* 8. Итог — transaction.amount (final, после скидки) или "Бесплатно" */}
+      <TableCell className="text-xs tabular-nums">
+        {isRedeem ? (
+          <span className="text-green-500 font-medium">Бесплатно</span>
+        ) : typeof final === "number" ? (
+          <span className="text-green-500 font-medium">{final.toFixed(2)} ₽</span>
+        ) : (
+          <span className="text-muted-foreground/50 italic">—</span>
+        )}
+      </TableCell>
+
+      {/* 8. Дата применения */}
+      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+        {u.created_at ? formatDateTime(u.created_at) : "—"}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ============================================
+// БЕЙДЖ ТИПА СКИДКИ — единая система Crown/Gem
 // ============================================
 
 function DiscountBadge({
@@ -160,28 +235,32 @@ function DiscountBadge({
   value: number;
   durationDays: number | null;
 }) {
+  const tierClass = "inline-flex items-center gap-1 rounded-md border text-xs px-1.5 py-0.5 font-medium w-fit";
+
   switch (type) {
     case "percent":
       return (
-        <Badge variant="secondary" className="gap-1 w-fit">
-          <Percent className="w-3 h-3" />−{value}%
-        </Badge>
+        <span className={`${tierClass} bg-blue-500/15 text-blue-600 border-blue-500/30`}>
+          <Percent className="w-3 h-3" /> %
+        </span>
       );
     case "fixed":
-      return <Badge variant="secondary" className="w-fit">−{value} ₽</Badge>;
+      return (
+        <span className={`${tierClass} bg-cyan-500/15 text-cyan-600 border-cyan-500/30`}>
+          ₽
+        </span>
+      );
     case "premium":
       return (
-        <Badge variant="warning" className="gap-1 w-fit">
-          <Crown className="w-3 h-3" />
-          +Premium{durationDays ? ` (${durationDays} дн.)` : ""}
-        </Badge>
+        <span className={`${tierClass} bg-orange-500/15 text-orange-600 border-orange-500/30`}>
+          <Crown className="w-3 h-3" /> Premium
+        </span>
       );
     case "vip":
       return (
-        <Badge variant="warning" className="gap-1 w-fit">
-          <Crown className="w-3 h-3" />
-          +VIP{durationDays ? ` (${durationDays} дн.)` : ""}
-        </Badge>
+        <span className={`${tierClass} bg-sky-500/15 text-sky-600 border-sky-500/30`}>
+          <Gem className="w-3 h-3" /> VIP
+        </span>
       );
     default:
       return <Badge variant="secondary">{type}</Badge>;

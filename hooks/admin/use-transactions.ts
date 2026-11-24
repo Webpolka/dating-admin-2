@@ -38,6 +38,11 @@ export type TransactionItem = {
   provider: string | null;
   provider_transaction_id: string | null;
   credits_amount: number | null;
+  // Промокод — извлечено из meta (бек отдаёт в списке).
+  promo_code_id: number | null;
+  promo_code_discount: number | null;
+  // original_amount — цена плана до скидки (из meta, НЕ вычисляется на фронте).
+  original_amount: number | null;
   created_at: string | null;
   updated_at: string | null;
   user: TransactionUser | null;

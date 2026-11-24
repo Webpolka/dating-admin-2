@@ -25,10 +25,11 @@
 import { useState, type ComponentType } from "react";
 import Link from "next/link";
 import {
-  Activity, BookOpen, Cake, CheckCircle2, ChevronRight, Circle, Crown,
-  Edit, FileText, Globe2, Image as ImageIcon, Layers, LifeBuoy,
-  MessageCircle, MessageSquare, Newspaper, Settings2, Shield, ShieldCheck,
-  Star, User, Users, Wallet,
+  Activity, AlertTriangle, Ban, BookOpen, Cake, CheckCircle2, ChevronRight,
+  Circle, Crown, DollarSign, Edit, FileText, Flag, Globe2, Headphones,
+  Image as ImageIcon, Layers, LifeBuoy, LogIn, LogOut, Megaphone,
+  MessageCircle, MessageSquare, Newspaper, Settings2, Shield, ShieldAlert,
+  ShieldCheck, Star, Undo2, Unlock, User, UserCog, Users, Wallet, XCircle,
   type LucideProps,
 } from "lucide-react";
 
@@ -59,34 +60,47 @@ interface AdminLogsTabProps {
  */
 const ICON_MAP: Record<string, ComponentType<LucideProps>> = {
   // действия над юзером/профилем
-  user:          User,
-  users:         Users,
-  shield:        Shield,
-  "shield-check": ShieldCheck,
-  "shield-x":    ShieldCheck,
+  user:            User,
+  "user-cog":      UserCog,
+  users:           Users,
+  shield:          Shield,
+  "shield-check":  ShieldCheck,
+  "shield-x":      ShieldCheck,
+  "shield-alert":  ShieldAlert,
+  ban:             Ban,
+  unlock:          Unlock,
+  "undo-2":        Undo2,
+  "x-circle":      XCircle,
+  "alert-triangle": AlertTriangle,
+  flag:            Flag,
   // контент
-  image:          ImageIcon,
-  edit:           Edit,
-  "file-text":    FileText,
-  newspaper:      Newspaper,
-  "book-open":    BookOpen,
+  image:            ImageIcon,
+  edit:             Edit,
+  "file-text":      FileText,
+  newspaper:        Newspaper,
+  "book-open":      BookOpen,
   "message-square": MessageSquare,
   "message-circle": MessageCircle,
   // финансы
-  wallet:        Wallet,
+  wallet:          Wallet,
+  "dollar-sign":   DollarSign,
   // система
-  settings:      Settings2,
-  globe:         Globe2,
-  lifebuoy:      LifeBuoy,
-  layers:        Layers,
+  settings:        Settings2,
+  globe:           Globe2,
+  lifebuoy:        LifeBuoy,
+  layers:          Layers,
+  megaphone:       Megaphone,
+  headphones:      Headphones,
+  "log-in":        LogIn,
+  "log-out":       LogOut,
   // имена в стиле user_events (shared enum-нейминг бэка)
-  crown:         Crown,
-  star:          Star,
-  "check-circle": CheckCircle2,
-  cake:          Cake,
-  activity:      Activity,
+  crown:           Crown,
+  star:            Star,
+  "check-circle":  CheckCircle2,
+  cake:            Cake,
+  activity:        Activity,
   // default AdminLogMeta
-  circle:        Circle,
+  circle:          Circle,
 };
 
 /** Разрешённые варианты Badge (зеркало badgeVariants из ui/badge.tsx). */
@@ -120,13 +134,17 @@ export function AdminLogsTab({ userId }: AdminLogsTabProps) {
 
   return (
     <div className="space-y-4">
+      <h3 className="text-sm font-semibold flex items-center gap-2">
+        <ShieldCheck className="w-4 h-4" /> Все действия над пользователем: &nbsp; {data.total}
+      </h3>
+
       {logs.length === 0 ? (
         <div className="p-4 bg-muted/20 rounded-lg border border-dashed border-border text-center text-xs text-muted-foreground">
           Над этим пользователем ещё не выполнялось действий из админки.
         </div>
       ) : (
         // Вертикальный таймлайн: псевдо-линия через before:absolute по левому краю.
-        <div className="space-y-4 relative before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-px before:bg-border">
+        <div className="space-y-4 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-border">
           {logs.map((log) => (
             <AdminLogRow key={log.id} log={log} />
           ))}
@@ -184,15 +202,15 @@ function AdminLogRow({ log }: { log: UserAdminLogItem }) {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <span className="text-sm font-medium truncate">{log.meta.title}</span>
-            <Badge variant={toBadgeVariant(log.meta.badge.variant)} className="text-[10px]">
+            <Badge variant={toBadgeVariant(log.meta.badge.variant)} className="text-xs px-1.5 py-0">
               {log.meta.badge.label}
             </Badge>
-            <span className="text-[10px] text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
+            <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
               {log.action}
             </span>
           </div>
-          <span
-            className="text-[10px] text-muted-foreground whitespace-nowrap"
+          <span            
+            className="text-xs text-muted-foreground whitespace-nowrap"
             title={log.created_at ? formatDateTime(log.created_at) : undefined}
           >
             {log.created_at ? formatRelativeTime(log.created_at) : "—"}
@@ -258,4 +276,4 @@ function AdminLogRow({ log }: { log: UserAdminLogItem }) {
       </div>
     </div>
   );
-}
+} 

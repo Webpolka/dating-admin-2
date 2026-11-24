@@ -478,14 +478,14 @@ function Section({
   children,
 }: {
   icon: React.ComponentType<{ className?: string }>;
-  title: string;
+  title?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="p-4 bg-muted/20 rounded-lg border border-border">
-      <p className="text-xs text-muted-foreground uppercase mb-2 font-semibold flex items-center gap-1.5">
+      {title && (<p className="text-xs text-muted-foreground uppercase mb-2 font-semibold flex items-center gap-1.5">
         <Icon className="w-3.5 h-3.5" /> {title}
-      </p>
+      </p>)}
       {children}
     </div>
   );

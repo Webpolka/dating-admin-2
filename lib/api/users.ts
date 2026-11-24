@@ -883,6 +883,7 @@ export interface UserPromocodeItem {
     status: string;
     type: string;
     created_at: string | null;
+    original_amount: number | null;
   } | null;
 }
 

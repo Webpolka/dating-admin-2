@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Pencil, Power, Trash2, Copy, Check, Ticket, Lock,
+  Crown, Gem, Percent,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,6 @@ import { Badge } from "@/components/ui/badge";
 import { ListPagination } from "@/components/admin/list-pagination";
 import { PageHeader } from "@/components/admin/page-header";
 import { UserBadge } from "@/components/admin/user-badge";
-import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import {
   usePromoCodeDetail,
   useTogglePromoCode,
@@ -70,7 +70,6 @@ export function PromoCodeDetailClient({
   const [usagePage, setUsagePage] = useState(1);
   const [copied, setCopied] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data, isLoading, isFetching, refetch } = usePromoCodeDetail(id, usagePage);
   const toggleMutation = useTogglePromoCode();
@@ -117,14 +116,10 @@ export function PromoCodeDetailClient({
     // Использованный промокод нельзя удалить: FK cascadeOnDelete снесёт
     // все promo_code_usages → потеря финансового snapshot.
     if (promo.used_count > 0) return;
+    if (!confirm(`Удалить промокод «${promo.code}»?\n\nКод будет удалён физически.`)) return;
     deleteMutation.mutate(
       { id: promo.id },
-      {
-        onSuccess: () => {
-          setDeleteOpen(false);
-          router.push("/finance/promo-codes");
-        },
-      },
+      { onSuccess: () => router.push("/finance/promo-codes") },
     );
   };
 
@@ -134,7 +129,7 @@ export function PromoCodeDetailClient({
         icon={Ticket}
         title={`Промокод ${promo.code}`}
         description={getPromoTypeLabel(promo.discount_type)}
-        onBack={() => router.push("/finance/promo-codes")}
+        onBack={() => router.back()}
         onRefresh={refetch}
         isFetching={isFetching}
       />
@@ -233,7 +228,6 @@ export function PromoCodeDetailClient({
           </Link>
         )}
 
-       
         {/* Immutable-баннер: semantic-поля всегда заморожены после создания. */}
         <div className="flex items-start gap-2 p-3 rounded-md bg-blue-500/10 border border-blue-500/30 text-sm text-blue-700 dark:text-blue-400">
           <Lock className="w-4 h-4 mt-0.5 shrink-0" />
@@ -250,7 +244,6 @@ export function PromoCodeDetailClient({
         <div className="flex gap-2 flex-wrap justify-end">
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Pencil className="w-3.5 h-3.5 mr-1.5" />
-          
             Изменить
           </Button>
           <Button
@@ -262,14 +255,13 @@ export function PromoCodeDetailClient({
             <Power className="w-3.5 h-3.5 mr-1.5" />
             {promo.is_active ? "Деактивировать" : "Активировать"}
           </Button>
-   
           {/* Delete — только для never-used кодов. */}
           {promo.used_count === 0 && (
             <Button
               variant="outline"
               size="sm"
               className="text-destructive hover:text-destructive"
-              onClick={() => setDeleteOpen(true)}
+              onClick={handleDelete}
               disabled={deleteMutation.isPending}
             >
               <Trash2 className="w-3.5 h-3.5 mr-1.5" />
@@ -322,43 +314,99 @@ export function PromoCodeDetailClient({
               <thead>
                 <tr className="border-b border-border bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="text-left px-4 py-2">Юзер</th>
-                  <th className="text-left px-4 py-2">Транзакция</th>
-                  <th className="text-right px-4 py-2">Скидка ₽</th>
-                  <th className="text-right px-4 py-2">Дата</th>
+                  <th className="text-right px-4 py-2 whitespace-nowrap">Исходная</th>
+                  <th className="text-right px-4 py-2 whitespace-nowrap">Скидка</th>                  
+                  <th className="text-right px-4 py-2 whitespace-nowrap">Итог</th>
+                  <th className="text-right px-4 py-2 whitespace-nowrap">Транзакция</th>
+                  <th className="text-right px-4 py-2 whitespace-nowrap">Дата</th>
                 </tr>
               </thead>
               <tbody>
-                {usages.map((u) => (
-                  <tr key={u.id} className="border-b border-border last:border-0 hover:bg-muted/20">
-                    <td className="px-4 py-2">
-                      {u.user ? (
-                        <Link href={`/users/${u.user.id}`}>
-                          <UserBadge user={u.user} />
-                        </Link>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      {u.transaction ? (
-                        <div className="text-xs">
-                          <div className="font-mono">#{u.transaction.id}</div>
-                          <div className="text-muted-foreground">
-                            {u.transaction.amount} ₽ · {u.transaction.status}
-                          </div>
-                        </div>
-                      ) : (
-                        <Badge variant="outline" className="text-xs">free redeem</Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums">
-                      {u.applied_discount > 0 ? `${u.applied_discount} ₽` : "—"}
-                    </td>
-                    <td className="px-4 py-2 text-right text-muted-foreground">
-                      {formatDate(u.created_at)}
-                    </td>
-                  </tr>
-                ))}
+                {usages.map((u) => {
+                  const hasTx = !!u.transaction;
+            
+                  // original_amount — из бека (transaction.original_amount из meta).
+                  // Может прийти как number, null ИЛИ undefined (если бек не отдал поле).
+                  // Поэтому проверяем typeof === 'number', а не !== null.
+                  const original = hasTx ? u.transaction!.original_amount : null;
+                  const final = hasTx ? u.transaction!.amount : null;
+                  const isRedeem = !hasTx;
+
+                  return (
+                    <tr key={u.id} className="border-b border-border last:border-0 hover:bg-muted/20">
+                      {/* Юзер */}
+                      <td className="px-4 py-2">
+                        {u.user ? (
+                          <Link href={`/users/${u.user.id}`}>
+                            <UserBadge user={u.user} />
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+
+                
+                      {/* Исходная — цена до скидки (из meta.original_amount) */}
+                      <td className="px-4 py-2 text-right tabular-nums text-xs text-muted-foreground">
+                
+                        {typeof original === "number" ? (
+                          <span className="font-medium">{original.toFixed(2)} ₽</span>
+                        ) : (
+                          <span className="italic">—</span>
+                        )}
+                      </td>
+
+                      {/* Списано — applied_discount */}
+                      <td className="px-4 py-2 text-right tabular-nums text-xs">
+                        {u.applied_discount > 0 ? (
+                          <span className="text-red-500 font-medium">−{u.applied_discount.toFixed(2)} ₽</span>
+                        ) : (
+                          <span className="text-muted-foreground/50 italic">—</span>
+                        )}
+                      </td>
+                     
+
+                      {/* Итог — transaction.amount (final, после скидки) или "Бесплатно" */}
+                      <td className="px-4 py-2 text-right tabular-nums text-xs">
+                        {isRedeem ? (
+                          <span className="text-green-500 font-medium">Бесплатно</span>
+
+                        ) : typeof final === "number" ? (
+                          <Link
+                            href={`/finance/transactions?q=${u.transaction!.id}`}
+                            className="text-green-500 font-medium hover:underline"
+                            title={`Транзакция #${u.transaction!.id} · ${u.transaction!.status}`}
+                          >
+                            {final.toFixed(2)} ₽
+                          </Link>
+                        ) : (
+                          <span className="italic">—</span>
+                        )}
+                      </td>
+
+                       {/* Транзакция — ID (кликабельная ссылка) */}
+                      <td className="px-4 py-2 text-right text-xs">
+                        {hasTx ? (
+                          <Link
+                            href={`/finance/transactions?q=${u.transaction!.id}`}
+                            className="font-mono text-blue-500 hover:underline"
+                            title={`#${u.transaction!.id} · ${u.transaction!.status}`}
+                          >
+                           Transaction #{u.transaction!.id}
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground/50 italic">—</span>
+                        )}
+                      </td>
+
+
+                      {/* Дата */}
+                      <td className="px-4 py-2 text-right text-xs text-muted-foreground whitespace-nowrap">
+                        {formatDate(u.created_at)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
 
@@ -382,18 +430,6 @@ export function PromoCodeDetailClient({
         open={editOpen}
         onOpenChange={setEditOpen}
         editPromo={promo}
-      />
-
-      {/* Модалка подтверждения удаления */}
-      <ConfirmDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        title={`Удалить промокод «${promo.code}»?`}
-        description="Код будет удалён физически. Это действие нельзя отменить."
-        confirmText="Удалить"
-        variant="destructive"
-        isLoading={deleteMutation.isPending}
-        onConfirm={handleDelete}
       />
     </div>
   );

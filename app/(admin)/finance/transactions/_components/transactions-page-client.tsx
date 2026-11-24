@@ -1,6 +1,6 @@
 // app/(admin)/finance/transactions/_components/transactions-page-client.tsx
 "use client";
-
+import Link from "next/link";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -44,6 +44,7 @@ import {
 import { TableShell } from "@/components/admin/table-shell";
 
 export function TransactionsPageClient() {
+  const isFirstSearchRender = useRef(true);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -77,7 +78,12 @@ export function TransactionsPageClient() {
   }, [search, statusFilter, typeFilter, dateFilter, page, pathname, router]);
 
   // Debounce поиска + сброс страницы при новом запросе.
+
   useEffect(() => {
+    if (isFirstSearchRender.current) {
+      isFirstSearchRender.current = false;
+      return; // пропускаем маунт
+    }
     const t = setTimeout(() => setPage(1), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [search]);
@@ -220,23 +226,25 @@ export function TransactionsPageClient() {
               <TableHead className="w-25">Тип</TableHead>
               <TableHead className="w-27.5">Статус</TableHead>
               <TableHead className="w-22.5">Провайдер</TableHead>
-              <TableHead className="w-37.5">Дата</TableHead>
+              <TableHead className="w-22.5">Промокод</TableHead>
+              <TableHead className="w-20">Скидка</TableHead>
+              <TableHead className="w-20">Дата</TableHead>
               <TableHead className="w-25 text-right">Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isFirstLoad ? (
-              <TableLoadingRow colSpan={8} />
+              <TableLoadingRow colSpan={10} />
             ) : isError ? (
               <TableErrorRow
-                colSpan={8}
+                colSpan={10}
                 title="Не удалось загрузить транзакции"
                 error={error}
                 onRetry={refetch}
               />
             ) : showEmpty ? (
               <TableEmptyRow
-                colSpan={8}
+                colSpan={10}
                 title="Транзакций не найдено"
                 onResetFilters={hasFilters ? handleResetFilters : undefined}
               />
@@ -297,6 +305,33 @@ export function TransactionsPageClient() {
 
                     <TableCell className="text-xs text-muted-foreground uppercase align-top pt-3">
                       {tx.provider ?? "—"}
+                    </TableCell>
+
+                    {/* Промокод — ID (кликабельная ссылка) */}
+                    <TableCell className="text-xs align-top pt-3">
+                      {tx.promo_code_id ? (
+                        <Link
+                          href={`/finance/promo-codes/${tx.promo_code_id}`}
+                          className="font-mono text-blue-500 hover:underline"
+                          title={`Промокод #${tx.promo_code_id}`}
+                        >
+                          PromoCode #{tx.promo_code_id}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground/50">—</span>
+                      )}
+                    </TableCell>
+
+                  
+                    {/* Скидка — применённая скидка в рублях (из meta, не вычисляется) */}
+                    <TableCell className="text-sm tabular-nums align-top pt-2">
+                      {tx.promo_code_discount && tx.promo_code_discount > 0 ? (
+                        <span className="text-red-500 font-medium">
+                          −{tx.promo_code_discount} ₽
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/50">—</span>
+                      )}
                     </TableCell>
 
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap align-top pt-3">

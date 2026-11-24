@@ -14,6 +14,40 @@
 // trashed-карты — opacity-50 + бейдж «Удалена». is_expired — бейдж «Истекла»
 // рядом со сроком. is_default — бейдж «По умолчанию».
 
+// Анализ законности хранения данных карт
+
+// Что хранится в БД (user_cards миграция):
+// Поле
+	
+// Что это
+	
+// PCI DSS
+// payment_method_id	Токен от шлюза (Yookassa/Stripe) — не номер карты	    ✅ Разрешено
+// last4	Последние 4 цифры	                                                ✅ Разрешено
+// card_type	Visa / Mastercard / МИР                                      	✅ Разрешено
+// expiry_month/year	Срок действия	                                        ✅ Разрешено
+// gateway	Название шлюза	                                                ✅ Разрешено
+
+// Чего НЕТ в БД (и не должно быть):
+// Поле
+	
+// PCI DSS
+// Полный номер карты (PAN)	                                                ❌ ЗАПРЕЩЕНО хранить
+// CVV/CVC	                                                                ❌ КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО
+// Имя владельца карты	                                                    ❌ Не нужно
+
+// Вывод: всё организовано ПРАВИЛЬНО и ЗАКОННО !!!
+// Проект использует токенизацию — industry best practice:
+
+//     Юзер вводит номер карты на стороне платёжного шлюза (Yookassa/CloudPayments — их iframe/redirect).
+//     Шлюз возвращает payment_method_id (токен) + last4 + card_type + expiry.
+//     Платформа хранит только токен + маскированные данные.
+//     При повторном платеже — платформа отправляет токен шлюзу, шлюз списывает деньги.
+
+// PCI DSS: нет хранения PAN → не нужен строгий PCI DSS Level 1-2. Токенизация → SAQ-A (самый простой вопросник).
+// ФЗ-152: last4 + card_type — маскированные данные, не полный PAN. Токен — не персональные данные. Законно.
+// ФЗ-161: платформа — "платёжный агент", не обрабатывает PAN напрямую. Шлюз имеет лицензию ЦБ РФ. Законно.
+// Контроллер cards() — отдаёт только маскированные данные. НЕ отдаёт payment_method_id (токен) — правильно, админу не нужен токен. 
 import { CreditCard, Star } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +92,7 @@ export function CardsTab({ userId }: CardsTabProps) {
               <TableHead className="w-16">ID</TableHead>
               <TableHead>Карта</TableHead>
               <TableHead className="w-32">Шлюз</TableHead>
-              <TableHead className="w-32">Срок</TableHead>
+              <TableHead className="w-40">Срок действия</TableHead>
               <TableHead className="w-40">Статус</TableHead>
               <TableHead className="w-32">Привязана</TableHead>
             </TableRow>
@@ -113,18 +147,16 @@ export function CardsTab({ userId }: CardsTabProps) {
                     )}
                   </TableCell>
 
-                  {/* Статус: удалена | (по умолчанию + активна/неактивна) */}
+                  
+                  {/* Статус: удалена | (по умолчанию звезда + активна/неактивна) */}
                   <TableCell>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {card.trashed ? (
                         <Badge variant="destructive">Удалена</Badge>
                       ) : (
                         <>
-                          {card.is_default && (
-                            <Badge variant="default" className="gap-1">
-                              <Star className="w-3 h-3" />
-                              По умолчанию
-                            </Badge>
+                          {card.is_default && (                          
+                            <span title="Карта по умолчанию"><Star className="w-4 h-4 text-yellow-500 fill-current"  /></span>
                           )}
                           {card.is_active ? (
                             <Badge variant="success">Активна</Badge>
